@@ -93,7 +93,8 @@ proportiontocut = 0
 
 
 # Set up standalone SPM
-matlab_cmd = os.path.join(standalone_spm_dir,'spm12','run_spm12.sh') + ' ' +              os.path.join(standalone_spm_dir,'MCR','v713' + ' script')
+matlab_cmd = os.path.join(standalone_spm_dir,'spm12','run_spm12.sh') + ' ' + \
+             os.path.join(standalone_spm_dir,'MCR','v713' + ' script')
 
 spm.SPMCommand.set_mlab_paths(matlab_cmd=matlab_cmd, use_mcr=True)
 spm.SPMCommand().version # testing
@@ -108,7 +109,8 @@ data_table = pd.read_excel(organization_spreadsheet, sheetname=siteName, keep_de
 
 for col in required_cols:
     if not col in data_table.columns:
-        sys.exit('Required column ' + col + ' is not present in the data organization spreadsheet ' +                  organization_spreadsheet + '!')
+        sys.exit('Required column ' + col + ' is not present in the data organization spreadsheet ' + \
+                         organization_spreadsheet + '!')
 
 # Find all visits with amyloid PET and MUSE labels
 data_table = data_table[required_cols].dropna(axis=0, how='any')
@@ -323,8 +325,6 @@ realign_workflow.connect([(getpet, reorient, [('pet','in_file')]),
 
 
 # We connect the inputs to the realignment workflow and run:
-
-# In[10]:
 
 amyloid_workflow = Workflow(name="amyloid_workflow")
 amyloid_workflow.base_dir = output_dir
@@ -1066,9 +1066,6 @@ DVR_pvc_workflow.connect([(DVR_pvc, ROImeans_dvr_wlr_pvc, [('DVRImgFile_wlr','im
                          ])
 
 DVR_pvc_workflow.write_graph('DVR_pvc.dot', graph2use='colored', simple_form=True)
-
-
-# In[43]:
 
 amyloid_workflow.connect([# DVR computation with PVC
                       (pvc_workflow, DVR_pvc_workflow, [('timemerge.merged_file', 'DVR_pvc.timeSeriesImgFile')]),

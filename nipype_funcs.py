@@ -520,7 +520,7 @@ class SRTM(BaseInterface):
                 sys.exit('Required column '+col+' is not present in the frame timing spreadsheet '+frameTimingCsvFile+'!')
         frameStart = frameTiming['Elapsed time (min)'] - frameTiming['Duration of time frame (min)']
         frameEnd = frameTiming['Elapsed time (min)']
-        
+
         frameStart = frameStart.as_matrix() #tolist()
         frameEnd = frameEnd.as_matrix() #tolist()
 
@@ -715,8 +715,6 @@ class SRTM(BaseInterface):
 
 
 class ROI_stats_to_spreadsheetInputSpec(BaseInterfaceInputSpec):
-    #idviList = traits.List(traits.String(), minlen=1,
-    #                       desc='image IDs', mandatory=True)
     imgFileList = traits.List(File(exists=True), minlen=1,
                               desc='Image list', mandatory=True)
     labelImgFileList = traits.List(File(exists=True), minlen=1,
@@ -754,7 +752,6 @@ class ROI_stats_to_spreadsheet(BaseInterface):
         from scipy import stats
         import xlsxwriter
 
-        #idviList = self.inputs.idviList
         imgFileList = self.inputs.imgFileList
         labelImgFileList = self.inputs.labelImgFileList
         ROI_list = self.inputs.ROI_list
@@ -768,7 +765,6 @@ class ROI_stats_to_spreadsheet(BaseInterface):
         assert(len(ROI_list)==len(ROI_names))
         assert(len(additionalROIs)==len(additionalROI_names))
         assert(len(imgFileList)==len(labelImgFileList))
-        #assert(len(idviList)==len(imgFileList))
 
         # Excel worksheet
         workbook = xlsxwriter.Workbook(xlsxfile)
@@ -780,7 +776,7 @@ class ROI_stats_to_spreadsheet(BaseInterface):
         col += 1
         worksheet.write(row,col,'label image path')
         col += 1
-        worksheet.write(row,col,'idvi')
+        worksheet.write(row,col,'id')
         for ROI in ROI_list + additionalROIs:
             col += 1
             worksheet.write(row,col,str(ROI))
@@ -791,7 +787,7 @@ class ROI_stats_to_spreadsheet(BaseInterface):
         col += 1
         worksheet.write(row,col,'label image path')
         col += 1
-        worksheet.write(row,col,'idvi')
+        worksheet.write(row,col,'id')
         for ROI_name in ROI_names + additionalROI_names:
             col += 1
             worksheet.write(row,col,ROI_name)
@@ -813,12 +809,12 @@ class ROI_stats_to_spreadsheet(BaseInterface):
             col += 1
             worksheet.write(row,col,labelimagefile)
             col += 1
-            #worksheet.write(row,col,idviList[i])
-            m = re.search(r'.+/_idvi_([^/]+)/.+', imagefile)
+
+            m = re.search(r'.+/_id_([^/]+)/.+', imagefile)
             if m:
                 worksheet.write(row,col,m.group(1))
             else:
-                m = re.search(r'.+/_idvi_([^/]+)/.+', labelimagefile)
+                m = re.search(r'.+/_id_([^/]+)/.+', labelimagefile)
                 if m:
                     worksheet.write(row,col,m.group(1))
 
@@ -974,125 +970,7 @@ class realign_snapshots(BaseInterface):
         for tt in range(nx ** 2):
             if tt < imdim[3]:
                 axes[x,y].imshow(np.fliplr(I[:,:,imdim[2]//2,tt]).T, aspect=voxsize[1]/voxsize[0], cmap='hot', vmin=vmin, vmax=vmax)
-                axes[x,y].set_title('#'+str(tt)+': '+str(frameStart[tt])+'-'+str(frameEnd[tt])+' min')
-            axes[x,y].set_axis_off()
-            y += 1
-            if y>=np.ceil(np.sqrt(imdim[3])):
-                y = 0
-                x += 1
-
-        fig.tight_layout()
-
-        _, base, _ = split_filename(petrealignedfile)
-        fig.savefig(base+'_snap.png', format='png')
-
-        return runtime
-
-    def _list_outputs(self):
-        petrealignedfile = self.inputs.petrealignedfile
-        realignParamsFile = self.inputs.realignParamsFile
-
-        outputs = self._outputs().get()
-
-        _, base, _ = split_filename(realignParamsFile)
-        outputs['realign_param_plot'] = os.path.abspath(base+'_plot.png')
-
-        _, base, _ = split_filename(petrealignedfile)
-        outputs['realigned_img_snap'] = os.path.abspath(base+'_snap.png')
-
-        return outputs
-
-
-class realign_av1451_snapshotsInputSpec(BaseInterfaceInputSpec):
-    petrealignedfile = File(exists=True, desc='Realigned 4D PET file', mandatory=True)
-    realignParamsFile = File(exists=True, desc='Realignment parameters text file', mandatory=True)
-    frameTimingCsvFile = File(exists=True, desc='csv file listing the duration of each time frame in the 4D image, in minutes', mandatory=True)
-    startTime = traits.Float(desc='start time of realigned PET, inclusive', mandatory=True)
-    endTime = traits.Float(desc='end time of realigned PET, exclusive', mandatory=True)
-
-class realign_av1451_snapshotsOutputSpec(TraitedSpec):
-    realign_param_plot = File(exists=True, desc='Realignment parameter plot')
-    realigned_img_snap = File(exists=True, desc='Realigned time frame snapshot')
-
-class realign_av1451_snapshots(BaseInterface):
-    input_spec = realign_av1451_snapshotsInputSpec
-    output_spec = realign_av1451_snapshotsOutputSpec
-
-    def _run_interface(self, runtime):
-        import matplotlib.pyplot as plt
-        from math import pi
-
-        petrealignedfile = self.inputs.petrealignedfile
-        frameTimingCsvFile = self.inputs.frameTimingCsvFile
-        startTime = self.inputs.startTime
-        endTime = self.inputs.endTime
-        realignParamsFile = self.inputs.realignParamsFile
-
-
-        frameTiming = pd.read_csv(frameTimingCsvFile)
-        # check that frameTiming has the required columns
-        for col in ['Duration of time frame (min)','Elapsed time (min)']:
-            if not col in frameTiming.columns:
-                sys.exit('Required column '+col+' is not present in the frame timing spreadsheet '+frameTimingCsvFile+'!')
-        frameStart = frameTiming['Elapsed time (min)'] - frameTiming['Duration of time frame (min)']
-        frameEnd = frameTiming['Elapsed time (min)']
-
-        frameStart = frameStart.as_matrix() #tolist()
-        frameEnd = frameEnd.as_matrix() #tolist()
-
-        startIndex = next((i for i,t in enumerate(frameStart) if t>=startTime), len(frameTiming))
-        endIndex = next((i for i,t in enumerate(frameStart) if t>=endTime), len(frameTiming))
-
-        frameStart = frameStart[startIndex:endIndex]
-        frameEnd = frameEnd[startIndex:endIndex]
-
-        # Compute the time mid-way for each time frame, to be used for plotting purposes
-        t = (frameStart + frameEnd)/2
-
-
-        # Time realignment parameters
-        rp = pd.read_csv(realignParamsFile, delim_whitespace=True, header=None).as_matrix()
-        translation = rp[:,:3]
-        rotation = rp[:,3:] * 180 / pi
-
-        fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(16,5))
-        axes[0].plot(t,translation[:,0],label='x')
-        axes[0].plot(t,translation[:,1],label='y')
-        axes[0].plot(t,translation[:,2],label='z')
-        axes[0].legend(loc=0)
-        axes[0].set_title('Translation over time')
-        axes[0].set_xlabel('Time (min)', fontsize=16)
-        axes[0].set_ylabel('Translation (mm)', fontsize=16)
-
-        axes[1].plot(t,rotation[:,0],label='x')
-        axes[1].plot(t,rotation[:,1],label='y')
-        axes[1].plot(t,rotation[:,2],label='z')
-        axes[1].legend(loc=0)
-        axes[1].set_title('Rotation over time')
-        axes[1].set_xlabel('Time (min)', fontsize=16)
-        axes[1].set_ylabel('Rotation (degrees)', fontsize=16)
-
-        fig.tight_layout()
-
-        _, base, _ = split_filename(realignParamsFile)
-        fig.savefig(base+'_plot.png', format='png')
-
-
-        # visualize time frames of the realigned scan
-        petrealigned = nib.load(petrealignedfile)
-        I = petrealigned.get_data()
-        imdim = I.shape
-        vmin, vmax = np.nanpercentile(I,[1,99])
-        voxsize = petrealigned.header.get_zooms()
-
-        # Right hemisphere is on the right hand side
-        nx = int(np.ceil(np.sqrt(imdim[3])))
-        fig, axes = plt.subplots(nrows=nx, ncols=nx, figsize=(16,16))
-        x = y = 0
-        for tt in range(nx ** 2):
-            if tt < imdim[3]:
-                axes[x,y].imshow(np.fliplr(I[:,:,imdim[2]//3,tt]).T, aspect=voxsize[1]/voxsize[0], cmap='hot', vmin=vmin, vmax=vmax)
-                axes[x,y].set_title('#'+str(tt)+': '+str(frameStart[tt])+'-'+str(frameEnd[tt])+' min')
+                axes[x,y].set_title('#'+str(tt)+': '+'{:.2f}'.format(frameStart[tt])+'-'+'{:.2f}'.format(frameEnd[tt])+' min')
             axes[x,y].set_axis_off()
             y += 1
             if y>=np.ceil(np.sqrt(imdim[3])):
@@ -1337,113 +1215,6 @@ class refReg_snapshots(BaseInterface):
         return outputs
 
 
-
-class refReg_av1451_snapshotsInputSpec(BaseInterfaceInputSpec):
-    petavgfile = File(exists=True, desc='PET average image', mandatory=True)
-    petrealignedfile = File(exists=True, desc='Realigned 4D PET file', mandatory=True)
-    frameTimingCsvFile = File(exists=True, desc='csv file listing the duration of each time frame in the 4D image, in minutes', mandatory=True)
-    maskfile = File(exists=True, desc='Mask file', mandatory=True)
-    startTime = traits.Float(desc='start time of realigned PET, inclusive', mandatory=True)
-    endTime = traits.Float(desc='end time of realigned PET, exclusive', mandatory=True)
-
-class refReg_av1451_snapshotsOutputSpec(TraitedSpec):
-    maskOverlay_axial = File(exists=True, desc='Mask overlaid on PET, axial')
-    maskOverlay_coronal = File(exists=True, desc='Mask overlaid on PET, coronal')
-    maskOverlay_sagittal = File(exists=True, desc='Mask overlaid on PET, sagittal')
-    mask_TAC = File(exists=True, desc='Reference region time activity curve')
-
-class refReg_av1451_snapshots(BaseInterface):
-    input_spec = refReg_av1451_snapshotsInputSpec
-    output_spec = refReg_av1451_snapshotsOutputSpec
-
-    def _run_interface(self, runtime):
-        import matplotlib.pyplot as plt
-        from nilearn.plotting import plot_anat, cm
-        from nilearn.masking import apply_mask
-
-        petavgfile = self.inputs.petavgfile
-        petrealignedfile = self.inputs.petrealignedfile
-        frameTimingCsvFile = self.inputs.frameTimingCsvFile
-        maskfile = self.inputs.maskfile
-        startTime = self.inputs.startTime
-        endTime = self.inputs.endTime
-
-        frameTiming = pd.read_csv(frameTimingCsvFile)
-        # check that frameTiming has the required columns
-        for col in ['Duration of time frame (min)','Elapsed time (min)']:
-            if not col in frameTiming.columns:
-                sys.exit('Required column '+col+' is not present in the frame timing spreadsheet '+frameTimingCsvFile+'!')
-        frameStart = frameTiming['Elapsed time (min)'] - frameTiming['Duration of time frame (min)']
-        frameEnd = frameTiming['Elapsed time (min)']
-
-        frameStart = frameStart.as_matrix() #tolist()
-        frameEnd = frameEnd.as_matrix() #tolist()
-
-        startIndex = next((i for i,t in enumerate(frameStart) if t>=startTime), len(frameTiming))
-        endIndex = next((i for i,t in enumerate(frameStart) if t>=endTime), len(frameTiming))
-
-        frameStart = frameStart[startIndex:endIndex]
-        frameEnd = frameEnd[startIndex:endIndex]
-
-        # Compute the time mid-way for each time frame, to be used for plotting purposes
-        t = (frameStart + frameEnd)/2
-
-
-        _, base, _ = split_filename(petavgfile)
-        fig = plt.figure(figsize=(16,2))
-        display = plot_anat(petavgfile,figure=fig, display_mode="z", cut_coords=10)
-        #display.add_edges(maskfile)
-        display.add_overlay(maskfile, cmap=cm.red_transparent)
-        display.title('Reference region on PET - axial')
-        fig.savefig(base+'_maskOverlay_axial.png', format='png')
-
-        fig = plt.figure(figsize=(16,2))
-        display = plot_anat(petavgfile,figure=fig, display_mode="y", cut_coords=10, annotate=False)
-        #display.add_edges(maskfile)
-        display.add_overlay(maskfile, cmap=cm.red_transparent)
-        display.title('Reference region on PET - coronal')
-        fig.savefig(base+'_maskOverlay_coronal.png', format='png')
-
-        fig = plt.figure(figsize=(16,2))
-        display = plot_anat(petavgfile,figure=fig, display_mode="x", cut_coords=10, annotate=False)
-        #display.add_edges(maskfile)
-        display.add_overlay(maskfile, cmap=cm.red_transparent)
-        display.title('Reference region on PET - sagittal')
-        fig.savefig(base+'_maskOverlay_sagittal.png', format='png')
-
-        # Reference region Time Activity Curve (TAC)
-        masked_data = apply_mask(petrealignedfile, maskfile)
-        ref_TAC = np.mean(masked_data,axis=1)
-
-        fig, ax = plt.subplots(figsize=(7,5))
-        ax.plot(t,ref_TAC)
-        ax.set_title('Reference region Time Activity Curve')
-        ax.set_xlabel('Time (min)', fontsize=16)
-        ax.set_ylabel('Activity', fontsize=16)
-        fig.tight_layout()
-
-        _, base, _ = split_filename(petrealignedfile)
-        fig.savefig(base+'_mask_TAC.png', format='png')
-
-        return runtime
-
-    def _list_outputs(self):
-        petrealignedfile = self.inputs.petrealignedfile
-        petavgfile = self.inputs.petavgfile
-
-        outputs = self._outputs().get()
-
-        _, base, _ = split_filename(petavgfile)
-        outputs['maskOverlay_axial'] = os.path.abspath(base+'_maskOverlay_axial.png')
-        outputs['maskOverlay_coronal'] = os.path.abspath(base+'_maskOverlay_coronal.png')
-        outputs['maskOverlay_sagittal'] = os.path.abspath(base+'_maskOverlay_sagittal.png')
-
-        _, base, _ = split_filename(petrealignedfile)
-        outputs['mask_TAC'] = os.path.abspath(base+'_mask_TAC.png')
-
-        return outputs
-
-
 class triplanar_snapshotsInputSpec(BaseInterfaceInputSpec):
     imgfile = File(exists=True, desc='Image file', mandatory=True)
     bgimgfile = File(exists=True, desc='Background image file', mandatory=False)
@@ -1578,61 +1349,6 @@ class triplanar_snapshots(BaseInterface):
         return outputs
 
 
-# class triplanar_snapshotsInputSpec(BaseInterfaceInputSpec):
-#     imgfile = File(exists=True, desc='Image file', mandatory=True)
-#
-# class triplanar_snapshotsOutputSpec(TraitedSpec):
-#     triplanar = File(exists=True, desc='Triplanar snapshot')
-#
-# class triplanar_snapshots(BaseInterface):
-#     input_spec = triplanar_snapshotsInputSpec
-#     output_spec = triplanar_snapshotsOutputSpec
-#
-#     def _run_interface(self, runtime):
-#         import matplotlib.pyplot as plt
-#
-#         imgfile = self.inputs.imgfile
-#
-#         img = nib.load(imgfile)
-#         I = img.get_data()
-#         imdim = I.shape
-#         voxsize = img.header.get_zooms()
-#         vmin, vmax = np.percentile(np.abs(I),[5,100])
-#
-#         fig, axes = plt.subplots(nrows=1, ncols=3, figsize=(16,5))
-#         axes[0].imshow(np.fliplr(I[:,:,imdim[2]//2]).T,
-#                        aspect=voxsize[1]/voxsize[0],
-#                        cmap='hot', vmin=vmin, vmax=vmax)
-#         axes[0].set_axis_off()
-#
-#         axes[1].imshow(np.fliplr(I[:,imdim[1]//2,:]).T,
-#                        aspect=voxsize[2]/voxsize[0],
-#                        cmap='hot', vmin=vmin, vmax=vmax)
-#         axes[1].set_axis_off()
-#
-#         im = axes[2].imshow(np.fliplr(I[imdim[0]//2,:,:]).T,
-#                             aspect=voxsize[2]/voxsize[1],
-#                             cmap='hot', vmin=vmin, vmax=vmax)
-#         axes[2].set_axis_off()
-#
-#         fig.colorbar(im)
-#
-#         _, base, _ = split_filename(imgfile)
-#         fig.savefig(base+'_snap.png', format='png')
-#
-#         return runtime
-#
-#     def _list_outputs(self):
-#         imgfile = self.inputs.imgfile
-#
-#         outputs = self._outputs().get()
-#
-#         _, base, _ = split_filename(imgfile)
-#         outputs['triplanar'] = os.path.abspath(base+'_snap.png')
-#
-#         return outputs
-
-
 class mosaicInputSpec(BaseInterfaceInputSpec):
     imgfile = File(exists=True, desc='Image file', mandatory=True)
     bgimgfile = File(exists=True, desc='Background image file', mandatory=False)
@@ -1722,125 +1438,5 @@ class mosaic(BaseInterface):
 
         _, base, _ = split_filename(imgfile)
         outputs['mosaic'] = os.path.abspath(base+'_mosaic.png')
-
-        return outputs
-
-
-class PrepareReportInputSpec(CommandLineInputSpec):
-    pyscript = File(desc="Python script to make into a report", exists=True, mandatory=True, position=0, argstr="%s")
-    make_pdf = traits.Bool(desc="Make PDF (if false, an HTML report will be generated -- default)", position=1, argstr="-f pdf")
-
-class PrepareReportOutputSpec(TraitedSpec):
-    report = File(desc="Report", exists=True)
-
-class PrepareReport(CommandLine):
-    _cmd = 'pypublish'
-    input_spec = PrepareReportInputSpec
-    output_spec = PrepareReportOutputSpec
-
-    def _list_outputs(self):
-        outputs = self._outputs().get()
-
-        fname = self.inputs.pyscript
-        pth, base, _ = split_filename(fname)
-
-        if self.inputs.make_pdf:
-            outputs['report'] = os.path.join(pth,base + ".pdf")
-        else:
-            outputs['report'] = os.path.join(pth,base + ".html")
-
-        return outputs
-
-
-class GeneratePyScriptInputSpec(BaseInterfaceInputSpec):
-    petrealignedfile = File(desc="Realigned PET file in native space", exists=True, mandatory=True)
-    pet20minfile = File(desc="PET 20 min mean file in native space", exists=True, mandatory=True)
-    realignParamsFile = File(desc="PET time frame realignment parameter file (from SPM Realign)", exists=True, mandatory=True)
-    maskfile = File(desc="Reference region mask in PET space", exists=True, mandatory=True)
-    frameTimingCsvFile = File(exists=True, desc='csv file listing the duration of each time frame in the 4D image, in minutes', mandatory=True)
-    splitTime = traits.Float(desc='minute into the time series image at which to split the 4D image', mandatory=True)
-
-    petregfile = File(desc="PET 20 min mean file in MRI space", exists=True, mandatory=True)
-    mrifile = File(desc="MRI file in native space", exists=True, mandatory=True)
-
-    pet_mnifile = File(desc="PET 20 min mean file in MNI space", exists=True, mandatory=True)
-    dvr_wlr_mnifile = File(desc="PiB DVR (WLR) file in MNI space", exists=True, mandatory=False)
-    r1_wlr_mnifile = File(desc="PiB R1 (WLR) file in MNI space", exists=True, mandatory=False)
-    dvr_lrsc_mnifile = File(desc="PiB DVR (LRSC) file in MNI space", exists=True, mandatory=False)
-    r1_lrsc_mnifile = File(desc="PiB R1 (LRSC) file in MNI space", exists=True, mandatory=False)
-    dvr_wlr_pvc_mnifile = File(desc="PiB DVR (WLR, PVC) file in MNI space", exists=True, mandatory=False)
-    r1_wlr_pvc_mnifile = File(desc="PiB R1 (WLR, PVC) file in MNI space", exists=True, mandatory=False)
-    dvr_lrsc_pvc_mnifile = File(desc="PiB DVR (LRSC, PVC) file in MNI space", exists=True, mandatory=False)
-    r1_lrsc_pvc_mnifile = File(desc="PiB R1 (LRSC, PVC) file in MNI space", exists=True, mandatory=False)
-    suvr_mnifile = File(desc="PET SUVR file in MNI space", exists=True, mandatory=True)
-    suvr_pvc_mnifile = File(desc="PET SUVR (PVC) file in MNI space", exists=True, mandatory=True)
-    ea_mnifile = File(desc="PiB EA file in MNI space", exists=True, mandatory=False)
-    ea_pvc_mnifile = File(desc="PiB EA (PVC) file in MNI space", exists=True, mandatory=False)
-
-    prototypescript = File(desc="Prototype script that will be appended", exists=True, mandatory=True)
-
-class GeneratePyScriptOutputSpec(TraitedSpec):
-    pyscript = File(desc="Python script", exists=True)
-
-class GeneratePyScript(BaseInterface):
-    input_spec = GeneratePyScriptInputSpec
-    output_spec = GeneratePyScriptOutputSpec
-
-    def _run_interface(self, runtime):
-        _, base, _ = split_filename(self.inputs.pet_mnifile)
-
-        pyscript = base + '_qc.py'
-
-        f = open(pyscript,'w')
-
-        print("#' # Inputs", file=f)
-        print("petrealignedfile = '" + self.inputs.petrealignedfile + "'", file=f)
-        print("pet20minfile = '" + self.inputs.pet20minfile + "'", file=f)
-        print("realignParamsFile = '" + self.inputs.realignParamsFile + "'", file=f)
-        print("maskfile = '" + self.inputs.maskfile + "'", file=f)
-        print("frameTimingCsvFile = '" + self.inputs.frameTimingCsvFile + "'", file=f)
-        print("splitTime = " + str(self.inputs.splitTime), file=f)
-
-        print("petregfile = '" + self.inputs.petregfile + "'", file=f)
-        print("mrifile = '" + self.inputs.mrifile + "'", file=f)
-
-        print("pet_mnifile = '" + self.inputs.pet_mnifile + "'", file=f)
-        if isdefined(self.inputs.dvr_wlr_mnifile):
-            print("dvr_wlr_mnifile = '" + self.inputs.dvr_wlr_mnifile + "'", file=f)
-        if isdefined(self.inputs.r1_wlr_mnifile):
-                print("r1_wlr_mnifile = '" + self.inputs.r1_wlr_mnifile + "'", file=f)
-        if isdefined(self.inputs.dvr_lrsc_mnifile):
-            print("dvr_lrsc_mnifile = '" + self.inputs.dvr_lrsc_mnifile + "'", file=f)
-        if isdefined(self.inputs.r1_lrsc_mnifile):
-            print("r1_lrsc_mnifile = '" + self.inputs.r1_lrsc_mnifile + "'", file=f)
-        if isdefined(self.inputs.dvr_wlr_pvc_mnifile):
-            print("dvr_wlr_pvc_mnifile = '" + self.inputs.dvr_wlr_pvc_mnifile + "'", file=f)
-        if isdefined(self.inputs.r1_wlr_pvc_mnifile):
-            print("r1_wlr_pvc_mnifile = '" + self.inputs.r1_wlr_pvc_mnifile + "'", file=f)
-        if isdefined(self.inputs.dvr_lrsc_pvc_mnifile):
-            print("dvr_lrsc_pvc_mnifile = '" + self.inputs.dvr_lrsc_pvc_mnifile + "'", file=f)
-        if isdefined(self.inputs.r1_lrsc_pvc_mnifile):
-            print("r1_lrsc_pvc_mnifile = '" + self.inputs.r1_lrsc_pvc_mnifile + "'", file=f)
-        print("suvr_mnifile = '" + self.inputs.suvr_mnifile + "'", file=f)
-        print("suvr_pvc_mnifile = '" + self.inputs.suvr_pvc_mnifile + "'", file=f)
-        if isdefined(self.inputs.ea_mnifile):
-            print("ea_mnifile = '" + self.inputs.ea_mnifile + "'", file=f)
-        if isdefined(self.inputs.ea_pvc_mnifile):
-            print("ea_pvc_mnifile = '" + self.inputs.ea_pvc_mnifile + "'", file=f)
-
-        print("", file=f)
-
-        for line in open(self.inputs.prototypescript):
-            print(line, file=f, end='')
-
-        f.close()
-
-        return runtime
-
-    def _list_outputs(self):
-        outputs = self._outputs().get()
-        _, base, _ = split_filename(self.inputs.pet_mnifile)
-
-        outputs['pyscript'] = os.path.abspath(base+'_qc.py')
 
         return outputs
