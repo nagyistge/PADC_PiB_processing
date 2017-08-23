@@ -598,7 +598,7 @@ whole_brain = Node(interface=CombineROIs(ROI_groupings=list(whole_brain_ROI_grou
                    name="whole_brain")
 
 brainmask = Node(interface=fsl.ImageMaths(op_string=' -bin', suffix='_brainmask'), name='brainmask')
-dilate = Node(interface=fsl.DilateImage(operation='max', kernel_shape='box', kernel_size=4), name='dilate')
+dilate = Node(interface=fsl.DilateImage(operation='max', kernel_shape='box', kernel_size=5), name='dilate')
 difference = Node(interface=fsl.ImageMaths(op_string=' -sub ', suffix='_diff'), name='difference')
 add = Node(interface=fsl.ImageMaths(op_string=' -add ', suffix='_add'), name='add')
 pvc_labels = Node(interface=CombineROIs(ROI_groupings=list(pvc_ROI_groupings.values())), name="pvc_labels")
@@ -822,7 +822,7 @@ ROImeans = JoinNode(interface=ROI_stats_to_spreadsheet(ROI_list=list(ROIs.values
                                              ROI_names=list(ROIs.keys()),
                                              additionalROIs=list(compositeROIs.values()),
                                              additionalROI_names=list(compositeROIs.keys()),
-                                             xlsxFile=os.path.join(output_dir,'SUVR_ROI.xlsx'),
+                                             xlsxFile=os.path.join(output_dir,'SUVR_40to60min_ROI.xlsx'),
                                              stat='mean',
                                              proportiontocut=proportiontocut),
                     joinsource="infosource", joinfield=['imgFileList','labelImgFileList'], name="ROImeans")
@@ -875,7 +875,7 @@ ROImeans_pvc = JoinNode(interface=ROI_stats_to_spreadsheet(ROI_list=list(ROIs.va
                                              ROI_names=list(ROIs.keys()),
                                              additionalROIs=list(compositeROIs.values()),
                                              additionalROI_names=list(compositeROIs.keys()),
-                                             xlsxFile=os.path.join(output_dir,'SUVR_pvc_ROI.xlsx'),
+                                             xlsxFile=os.path.join(output_dir,'SUVR_40to60min_pvc_ROI.xlsx'),
                                              stat='mean',
                                              proportiontocut=proportiontocut),
                     joinsource="infosource", joinfield=['imgFileList','labelImgFileList'], name="ROImeans_pvc")

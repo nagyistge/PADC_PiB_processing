@@ -68,9 +68,9 @@ endTime_20min = 20
 startTime_EA = 0.75
 endTime_EA = 5
 
-# 50 to 70-min mean, used for SUVR computation
-startTime_50to70min = 50
-endTime_50to70min = 70
+# 40 to 70-min mean, used for SUVR computation
+startTime_40to70min = 40
+endTime_40to70min = 70
 
 # 40 to 60-min mean, used for SUVR computation
 startTime_40to60min = 40
@@ -583,7 +583,7 @@ assert(len(pvc_all_labels)==len(set(pvc_all_labels)))
 #
 # Second, we generate the set of labels that will be used in partial volume correction. MUSE labels do not include a sulcal CSF label, but this is an important label for PVC. We approximate the sulcal CSF label as the rim around the brain. To this end, we dilate the brain mask, and subtract from it the original brain mask. We designate a label value of $-1$ to this rim, and include it with the ventricle and CSF ROI for PVC.
 # * `brainmask`: Threshold the MUSE label image to get a binary brain mask.
-# * `dilate`: Dilate the brain mask using a $5\times5\times5$ mm box kernel.
+# * `dilate`: Dilate the brain mask using a $4\times4\times4$ mm box kernel.
 # * `difference`: Subtract dilated brain mask from the orginal mask to get the rim around the brain. This subtraction assigns a value of $-1$ to the rim.
 # * `add`: We add the rim image to the MUSE label image. Since the MUSE label image has value $0$ where the rim image has non-zero values, the result is a label image that preserves all the MUSE labels and additionally has a "sulcal CSF" label with value $-1$.
 # * `pvc_labels`: We combine the ROIs to generate a collection of binary masks. The result is a 4D volume (with all the binary 3D masks concatenated along 4th dimension). This 4D volume will be an input to the PVC methods.
@@ -825,7 +825,7 @@ ROImeans = JoinNode(interface=ROI_stats_to_spreadsheet(ROI_list=list(ROIs.values
                                              ROI_names=list(ROIs.keys()),
                                              additionalROIs=list(compositeROIs.values()),
                                              additionalROI_names=list(compositeROIs.keys()),
-                                             xlsxFile=os.path.join(output_dir,'SUVR_ROI.xlsx'),
+                                             xlsxFile=os.path.join(output_dir,'SUVR_40to60min_ROI.xlsx'),
                                              stat='mean',
                                              proportiontocut=proportiontocut),
                     joinsource="infosource", joinfield=['imgFileList','labelImgFileList'], name="ROImeans")
@@ -878,7 +878,7 @@ ROImeans_pvc = JoinNode(interface=ROI_stats_to_spreadsheet(ROI_list=list(ROIs.va
                                              ROI_names=list(ROIs.keys()),
                                              additionalROIs=list(compositeROIs.values()),
                                              additionalROI_names=list(compositeROIs.keys()),
-                                             xlsxFile=os.path.join(output_dir,'SUVR_pvc_ROI.xlsx'),
+                                             xlsxFile=os.path.join(output_dir,'SUVR_40to60min_pvc_ROI.xlsx'),
                                              stat='mean',
                                              proportiontocut=proportiontocut),
                     joinsource="infosource", joinfield=['imgFileList','labelImgFileList'], name="ROImeans_pvc")
@@ -917,6 +917,116 @@ amyloid_workflow.connect([# SUVR computation with PVC
                       (labels_workflow, SUVR_pvc_workflow, [('reference_region.roi4DMaskFile','ROImean_pvc.mask_file'),
                                                             ('muselabel.out_file','ROImeans_pvc.labelImgFileList')])
                      ])
+
+
+
+# ## 7c. SUVR IMAGE, 40 to 70 min
+
+# Compute 40 to 70 min mean image for SUVR computation
+dynamic_mean = Node(interface=DynamicMean(startTime=startTime_40to70min, endTime=endTime_40to70min),
+                              name="dynamic_mean")
+
+ROImean = Node(interface=fsl.ImageStats(op_string=' -k %s -m '), name="ROImean") # note that this is not a trimmed mean!
+SUVR = Node(interface=fsl.ImageMaths(), name="SUVR")
+
+ROImeans = JoinNode(interface=ROI_stats_to_spreadsheet(ROI_list=list(ROIs.values()),
+                                             ROI_names=list(ROIs.keys()),
+                                             additionalROIs=list(compositeROIs.values()),
+                                             additionalROI_names=list(compositeROIs.keys()),
+                                             xlsxFile=os.path.join(output_dir,'SUVR_40to70min_ROI.xlsx'),
+                                             stat='mean',
+                                             proportiontocut=proportiontocut),
+                    joinsource="infosource", joinfield=['imgFileList','labelImgFileList'], name="ROImeans")
+
+datasink = Node(interface=nio.DataSink(), name="datasink")
+datasink.inputs.base_directory = output_dir
+datasink.inputs.container = os.path.join('output','SUVR_wf')
+datasink.inputs.substitutions = [('_id_',''),
+                                 ('_merged',''),
+                                 ('_flirt','_coreg'),
+                                 ('_mean','_avg40to70min'),
+                                 ('_maths','_suvr'),
+                                 ('_reoriented',''),
+                                 ('_masked','')
+                                ]
+datasink.inputs.regexp_substitutions = [(r'_\d+\.\d+to\d+\.\d+min',r'')]
+
+SUVR2_workflow = Workflow(name="SUVR2_workflow")
+SUVR2_workflow.base_dir = os.path.join(output_dir,'SUVR_workingdir')
+SUVR2_workflow.config = {"execution": {"crashdump_dir": os.path.join(output_dir,'SUVR_crashdumps')}}
+SUVR2_workflow.connect([(dynamic_mean, ROImean, [('meanImgFile','in_file')]),
+                       (dynamic_mean, SUVR, [('meanImgFile','in_file')]),
+                       (ROImean, SUVR, [(('out_stat',to_div_string),'op_string')]),
+                       (SUVR, ROImeans, [('out_file','imgFileList')]),
+
+                       (dynamic_mean, datasink, [('meanImgFile','avg40to70min')]),
+                       (SUVR, datasink, [('out_file','SUVR_40to70min')])
+                      ])
+
+SUVR2_workflow.write_graph('SUVR.dot', graph2use='colored', simple_form=True)
+
+amyloid_workflow.connect([# SUVR computation
+                      (coreg_workflow, SUVR2_workflow, [('realignedpet.pet', 'dynamic_mean.timeSeriesImgFile')]),
+                      (realign_workflow, SUVR2_workflow, [('getpettiming.pettiming','dynamic_mean.frameTimingCsvFile')]),
+                      (labels_workflow, SUVR2_workflow, [('reference_region.roi4DMaskFile','ROImean.mask_file'),
+                                                        ('muselabel.out_file','ROImeans.labelImgFileList')])
+                     ])
+
+
+# ## 7d. SUVR IMAGE WITH PVC, 40 to 70 min
+
+# Compute 40 to 70 min mean image for SUVR computation
+dynamic_mean_pvc = Node(interface=DynamicMean(startTime=startTime_40to70min, endTime=endTime_40to70min),
+                              name="dynamic_mean_pvc")
+
+ROImean_pvc = Node(interface=fsl.ImageStats(op_string=' -k %s -m '), name="ROImean_pvc") # note that this is not a trimmed mean!
+SUVR_pvc = Node(interface=fsl.ImageMaths(), name="SUVR_pvc")
+
+ROImeans_pvc = JoinNode(interface=ROI_stats_to_spreadsheet(ROI_list=list(ROIs.values()),
+                                             ROI_names=list(ROIs.keys()),
+                                             additionalROIs=list(compositeROIs.values()),
+                                             additionalROI_names=list(compositeROIs.keys()),
+                                             xlsxFile=os.path.join(output_dir,'SUVR_40to70min_pvc_ROI.xlsx'),
+                                             stat='mean',
+                                             proportiontocut=proportiontocut),
+                    joinsource="infosource", joinfield=['imgFileList','labelImgFileList'], name="ROImeans_pvc")
+
+datasink = Node(interface=nio.DataSink(), name="datasink")
+datasink.inputs.base_directory = output_dir
+datasink.inputs.container = os.path.join('output','SUVR_wf')
+datasink.inputs.substitutions = [('_id_',''),
+                                 ('_merged',''),
+                                 ('_flirt','_coreg'),
+                                 ('_mean','_avg40to70min'),
+                                 ('_maths','_suvr'),
+                                 ('_reoriented',''),
+                                 ('_0000',''),
+                                 ('_masked','')
+                                ]
+datasink.inputs.regexp_substitutions = [(r'_\d+\.\d+to\d+\.\d+min',r'')]
+
+SUVR2_pvc_workflow = Workflow(name="SUVR2_pvc_workflow")
+SUVR2_pvc_workflow.base_dir = os.path.join(output_dir,'SUVR_workingdir')
+SUVR2_pvc_workflow.config = {"execution": {"crashdump_dir": os.path.join(output_dir,'SUVR_crashdumps')}}
+SUVR2_pvc_workflow.connect([(dynamic_mean_pvc, ROImean_pvc, [('meanImgFile','in_file')]),
+                       (dynamic_mean_pvc, SUVR_pvc, [('meanImgFile','in_file')]),
+                       (ROImean_pvc, SUVR_pvc, [(('out_stat',to_div_string),'op_string')]),
+                       (SUVR_pvc, ROImeans_pvc, [('out_file','imgFileList')]),
+
+                       (dynamic_mean_pvc, datasink, [('meanImgFile','avg40to70min_pvc')]),
+                       (SUVR_pvc, datasink, [('out_file','SUVR_40to70min_pvc')])
+                      ])
+
+SUVR2_pvc_workflow.write_graph('SUVR_pvc.dot', graph2use='colored', simple_form=True)
+
+amyloid_workflow.connect([# SUVR computation with PVC
+                      (pvc_workflow, SUVR2_pvc_workflow, [('timemerge.merged_file', 'dynamic_mean_pvc.timeSeriesImgFile')]),
+                      (realign_workflow, SUVR2_pvc_workflow, [('getpettiming.pettiming','dynamic_mean_pvc.frameTimingCsvFile')]),
+                      (labels_workflow, SUVR2_pvc_workflow, [('reference_region.roi4DMaskFile','ROImean_pvc.mask_file'),
+                                                            ('muselabel.out_file','ROImeans_pvc.labelImgFileList')])
+                     ])
+
+
 
 
 # ## 8a. DVR IMAGE
